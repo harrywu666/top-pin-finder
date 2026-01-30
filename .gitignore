@@ -38,6 +38,7 @@ downloads/
 *.log
 config_local.json
 session_data/
+credentials.json
 
 # OS
 .DS_Store

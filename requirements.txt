@@ -16,5 +16,12 @@ lxml>=5.0.0
 # Excel导出
 openpyxl>=3.1.0
 
+# Google Sheets集成
+gspread>=6.0.0
+google-auth>=2.25.0
+
+# 飞书表格集成（使用requests调用API）
+# requests 已在核心依赖中
+
 # 其他工具
 python-dotenv>=1.0.0

@@ -4,10 +4,14 @@
     "session_cookie": ""
   },
   "search": {
-    "keywords": "landscape",
-    "min_likes": 50,
+    "keywords": "壁纸",
+    "min_likes": 100,
     "max_results": 5,
-    "scroll_delay": 2
+    "scroll_delay": 1,
+    "sort_by": "relevance",
+    "enable_random": true,
+    "random_sort_probability": 0.8,
+    "history_file": "./downloads/.download_history.json"
   },
   "download": {
     "save_path": "./downloads",
@@ -16,7 +20,14 @@
     "min_resolution": {
       "width": 800,
       "height": 600
-    }
+    },
+    "excel_auto_save": true,
+    "enable_local_download": false
+  },
+  "google_sheets": {
+    "enabled": true,
+    "spreadsheet_id": "1XPVYEGgqpuCWEqmmeva8kMWIL52ClpIk52kXKVGmoHk",
+    "credentials_file": "./credentials.json"
   },
   "behavior": {
     "random_delay_min": 1,

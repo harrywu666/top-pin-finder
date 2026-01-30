@@ -5,7 +5,7 @@ Excel导出模块
 
 import os
 from typing import List, Dict
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
@@ -56,7 +56,7 @@ class ExcelExporter:
         self.worksheet.column_dimensions['C'].width = 50  # 链接列
         self.worksheet.column_dimensions['D'].width = 30  # 文件名列
     
-    def add_record(self, image_path: str, likes: int, original_url: str, filename: str):
+    def add_record(self, image_path: str, likes: int, original_url: str, filename: str, auto_save: bool = False):
         """
         添加一条下载记录
         
@@ -65,6 +65,7 @@ class ExcelExporter:
             likes: 点赞数
             original_url: 原图链接
             filename: 本地文件名
+            auto_save: 是否添加后立即保存(默认False,可在下载完成时设为True以实时保存)
         """
         try:
             row = self.current_row
@@ -118,6 +119,11 @@ class ExcelExporter:
             self.current_row += 1
             logger.debug(f"已添加Excel记录: {filename}")
             
+            # 如果启用自动保存,立即保存Excel文件
+            if auto_save:
+                self.save()
+                logger.debug(f"Excel已自动保存(当前 {self.get_record_count()} 条记录)")
+            
         except Exception as e:
             logger.error(f"添加Excel记录失败: {e}")
     
@@ -132,6 +138,12 @@ class ExcelExporter:
             # 保存工作簿
             self.workbook.save(self.output_path)
             logger.info(f"✓ Excel报告已保存: {self.output_path}")
+            
+            # 重新加载workbook以支持多次保存
+            # 这样可以避免"I/O operation on closed file"错误
+            self.workbook = load_workbook(self.output_path)
+            self.worksheet = self.workbook.active
+            
             return True
             
         except Exception as e:

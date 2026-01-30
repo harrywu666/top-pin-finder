@@ -1,0 +1,190 @@
+"""
+Google Sheets导出模块
+负责将下载的图片信息导出到Google Sheets在线表格
+"""
+
+import gspread
+from google.oauth2.service_account import Credentials
+from datetime import datetime
+from typing import List, Dict, Optional
+from ..core.logger import logger
+
+
+class GoogleSheetsExporter:
+    """Google Sheets导出器 - 将Pin信息写入在线表格"""
+    
+    def __init__(self, spreadsheet_id: str, credentials_file: str):
+        """
+        初始化Google Sheets导出器
+        
+        Args:
+            spreadsheet_id: Google Sheets文档ID
+            credentials_file: Service Account凭证JSON文件路径
+        """
+        self.spreadsheet_id = spreadsheet_id
+        self.credentials_file = credentials_file
+        self.client = None
+        self.spreadsheet = None
+        self.worksheet = None
+        self.records = []  # 缓存记录,最后批量写入
+        
+        logger.info(f"Google Sheets导出器已初始化")
+    
+    def connect(self):
+        """连接到Google Sheets"""
+        try:
+            # 定义访问范围
+            scopes = [
+                'https://www.googleapis.com/auth/spreadsheets',
+                'https://www.googleapis.com/auth/drive'
+            ]
+            
+            # 使用Service Account凭证认证
+            creds = Credentials.from_service_account_file(
+                self.credentials_file,
+                scopes=scopes
+            )
+            
+            # 创建gspread客户端
+            self.client = gspread.authorize(creds)
+            
+            # 打开指定的Spreadsheet
+            self.spreadsheet = self.client.open_by_key(self.spreadsheet_id)
+            
+            logger.info(f"✓ 已连接到Google Sheets: {self.spreadsheet.title}")
+            return True
+            
+        except FileNotFoundError:
+            logger.error(f"凭证文件不存在: {self.credentials_file}")
+            logger.error("请将Google Service Account凭证JSON文件放置在项目根目录")
+            return False
+        except Exception as e:
+            logger.error(f"连接Google Sheets失败: {e}")
+            return False
+    
+    def create_worksheet(self, task_name: str) -> bool:
+        """
+        创建新工作表
+        
+        Args:
+            task_name: 任务名称,用于工作表标题
+        
+        Returns:
+            是否成功创建
+        """
+        try:
+            # 生成工作表名称(时间戳 + 任务名)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            sheet_title = f"{task_name}_{timestamp}"
+            
+            # 创建新工作表
+            self.worksheet = self.spreadsheet.add_worksheet(
+                title=sheet_title,
+                rows=100,
+                cols=6
+            )
+            
+            logger.info(f"✓ 已创建新工作表: {sheet_title}")
+            
+            # 设置表头
+            headers = ["序号", "图片预览", "点赞数", "标题", "Pin链接", "图片URL"]
+            self.worksheet.append_row(headers)
+            
+            # 格式化表头
+            self.worksheet.format('A1:F1', {
+                "backgroundColor": {"red": 0.27, "green": 0.45, "blue": 0.77},
+                "textFormat": {"bold": True, "foregroundColor": {"red": 1, "green": 1, "blue": 1}},
+                "horizontalAlignment": "CENTER"
+            })
+            
+            logger.info("✓ 表头已设置")
+            return True
+            
+        except Exception as e:
+            logger.error(f"创建工作表失败: {e}")
+            return False
+    
+    def add_record(self, index: int, image_url: str, likes: int, title: str, pin_url: str):
+        """
+        添加一条记录到缓存
+        
+        Args:
+            index: 序号
+            image_url: 图片URL
+            likes: 点赞数
+            title: 标题
+            pin_url: Pin详情页URL
+        """
+        # 使用IMAGE函数在Google Sheets中显示图片
+        image_formula = f'=IMAGE("{image_url}", 1)'
+        
+        record = [
+            index,
+            image_formula,  # 使用公式显示图片
+            likes,
+            title,
+            pin_url,
+            image_url
+        ]
+        
+        self.records.append(record)
+        logger.debug(f"已添加记录到缓存: Pin #{index}")
+    
+    def save(self) -> bool:
+        """
+        批量保存所有记录到Google Sheets
+        
+        Returns:
+            是否成功保存
+        """
+        try:
+            if not self.records:
+                logger.warning("没有记录需要保存")
+                return False
+            
+            # 批量写入所有记录
+            self.worksheet.append_rows(self.records)
+            
+            logger.info(f"✓ 已保存 {len(self.records)} 条记录到Google Sheets")
+            
+            # 清空缓存
+            self.records = []
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"保存到Google Sheets失败: {e}")
+            return False
+    
+    def get_record_count(self) -> int:
+        """获取记录数量"""
+        return len(self.records)
+    
+    def get_worksheet_url(self) -> Optional[str]:
+        """获取当前工作表的URL"""
+        if self.worksheet:
+            return self.worksheet.url
+        return None
+
+
+if __name__ == "__main__":
+    # 测试Google Sheets导出器
+    SPREADSHEET_ID = "1XPVYEGgqpuCWEqmmeva8kMWIL52ClpIk52kXKVGmoHk"
+    CREDENTIALS_FILE = "./credentials.json"
+    
+    exporter = GoogleSheetsExporter(SPREADSHEET_ID, CREDENTIALS_FILE)
+    
+    if exporter.connect():
+        if exporter.create_worksheet("测试"):
+            # 添加测试数据
+            exporter.add_record(
+                index=1,
+                image_url="https://i.pinimg.com/originals/sample.jpg",
+                likes=1234,
+                title="测试图片",
+                pin_url="https://www.pinterest.com/pin/123456/"
+            )
+            
+            # 保存
+            exporter.save()
+            print(f"✓ 测试完成,工作表URL: {exporter.get_worksheet_url()}")
